@@ -381,9 +381,9 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         (None, None)
     };
 
-    let tools_registry_raw = tools::all_tools_with_runtime(
+    let tools_registry_raw = tools::all_tools_with_runtime(tools::ToolContext::new(
         Arc::new(config.clone()),
-        &security,
+        security.clone(),
         runtime,
         Arc::clone(&mem),
         composio_key,
@@ -395,7 +395,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         &config.agents,
         config.api_key.as_deref(),
         &config,
-    );
+    ));
     let tools_registry: Arc<Vec<ToolSpec>> =
         Arc::new(tools_registry_raw.iter().map(|t| t.spec()).collect());
 

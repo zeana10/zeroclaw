@@ -2851,9 +2851,9 @@ pub async fn run(
     } else {
         (None, None)
     };
-    let mut tools_registry = tools::all_tools_with_runtime(
+    let mut tools_registry = tools::all_tools_with_runtime(tools::ToolContext::new(
         Arc::new(config.clone()),
-        &security,
+        security.clone(),
         runtime,
         mem.clone(),
         composio_key,
@@ -2865,7 +2865,7 @@ pub async fn run(
         &config.agents,
         config.api_key.as_deref(),
         &config,
-    );
+    ));
 
     let peripheral_tools: Vec<Box<dyn Tool>> =
         crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
@@ -3333,9 +3333,9 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
     } else {
         (None, None)
     };
-    let mut tools_registry = tools::all_tools_with_runtime(
+    let mut tools_registry = tools::all_tools_with_runtime(tools::ToolContext::new(
         Arc::new(config.clone()),
-        &security,
+        security.clone(),
         runtime,
         mem.clone(),
         composio_key,
@@ -3347,7 +3347,7 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         &config.agents,
         config.api_key.as_deref(),
         &config,
-    );
+    ));
     let peripheral_tools: Vec<Box<dyn Tool>> =
         crate::peripherals::create_peripheral_tools(&config.peripherals).await?;
     tools_registry.extend(peripheral_tools);
