@@ -269,9 +269,9 @@ impl Agent {
             None
         };
 
-        let tools = tools::all_tools_with_runtime(
+        let tools = tools::all_tools_with_runtime(tools::ToolContext::new(
             Arc::new(config.clone()),
-            &security,
+            security.clone(),
             runtime,
             memory.clone(),
             composio_key,
@@ -283,7 +283,7 @@ impl Agent {
             &config.agents,
             config.api_key.as_deref(),
             config,
-        );
+        ));
 
         let provider_name = config.default_provider.as_deref().unwrap_or("openrouter");
 

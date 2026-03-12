@@ -3364,9 +3364,9 @@ pub async fn start_channels(config: Config) -> Result<()> {
     };
     // Build system prompt from workspace identity files + skills
     let workspace = config.workspace_dir.clone();
-    let tools_registry = Arc::new(tools::all_tools_with_runtime(
+    let tools_registry = Arc::new(tools::all_tools_with_runtime(tools::ToolContext::new(
         Arc::new(config.clone()),
-        &security,
+        security.clone(),
         runtime,
         Arc::clone(&mem),
         composio_key,
@@ -3378,7 +3378,7 @@ pub async fn start_channels(config: Config) -> Result<()> {
         &config.agents,
         config.api_key.as_deref(),
         &config,
-    ));
+    )));
 
     let skills = crate::skills::load_skills_with_config(&workspace, &config);
 

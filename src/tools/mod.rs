@@ -103,6 +103,7 @@ use crate::runtime::{NativeRuntime, RuntimeAdapter};
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -139,6 +140,91 @@ fn boxed_registry_from_arcs(tools: Vec<Arc<dyn Tool>>) -> Vec<Box<dyn Tool>> {
     tools.into_iter().map(ArcDelegatingTool::boxed).collect()
 }
 
+/// Shared inputs required to assemble the full tool registry.
+#[derive(Clone)]
+pub struct ToolContext<'a> {
+    pub config: Arc<Config>,
+    pub security: Arc<SecurityPolicy>,
+    pub runtime: Arc<dyn RuntimeAdapter>,
+    pub memory: Arc<dyn Memory>,
+    pub composio_key: Option<&'a str>,
+    pub composio_entity_id: Option<&'a str>,
+    pub browser_config: &'a crate::config::BrowserConfig,
+    pub http_config: &'a crate::config::HttpRequestConfig,
+    pub web_fetch_config: &'a crate::config::WebFetchConfig,
+    pub workspace_dir: &'a Path,
+    pub agents: &'a HashMap<String, DelegateAgentConfig>,
+    pub fallback_api_key: Option<&'a str>,
+    pub root_config: &'a crate::config::Config,
+}
+
+impl<'a> ToolContext<'a> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        config: Arc<Config>,
+        security: Arc<SecurityPolicy>,
+        runtime: Arc<dyn RuntimeAdapter>,
+        memory: Arc<dyn Memory>,
+        composio_key: Option<&'a str>,
+        composio_entity_id: Option<&'a str>,
+        browser_config: &'a crate::config::BrowserConfig,
+        http_config: &'a crate::config::HttpRequestConfig,
+        web_fetch_config: &'a crate::config::WebFetchConfig,
+        workspace_dir: &'a Path,
+        agents: &'a HashMap<String, DelegateAgentConfig>,
+        fallback_api_key: Option<&'a str>,
+        root_config: &'a crate::config::Config,
+    ) -> Self {
+        Self {
+            config,
+            security,
+            runtime,
+            memory,
+            composio_key,
+            composio_entity_id,
+            browser_config,
+            http_config,
+            web_fetch_config,
+            workspace_dir,
+            agents,
+            fallback_api_key,
+            root_config,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_native_runtime(
+        config: Arc<Config>,
+        security: Arc<SecurityPolicy>,
+        memory: Arc<dyn Memory>,
+        composio_key: Option<&'a str>,
+        composio_entity_id: Option<&'a str>,
+        browser_config: &'a crate::config::BrowserConfig,
+        http_config: &'a crate::config::HttpRequestConfig,
+        web_fetch_config: &'a crate::config::WebFetchConfig,
+        workspace_dir: &'a Path,
+        agents: &'a HashMap<String, DelegateAgentConfig>,
+        fallback_api_key: Option<&'a str>,
+        root_config: &'a crate::config::Config,
+    ) -> Self {
+        Self::new(
+            config,
+            security,
+            Arc::new(NativeRuntime::new()),
+            memory,
+            composio_key,
+            composio_entity_id,
+            browser_config,
+            http_config,
+            web_fetch_config,
+            workspace_dir,
+            agents,
+            fallback_api_key,
+            root_config,
+        )
+    }
+}
+
 /// Create the default tool registry
 pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
     default_tools_with_runtime(security, Arc::new(NativeRuntime::new()))
@@ -160,25 +246,16 @@ pub fn default_tools_with_runtime(
 }
 
 /// Create full tool registry including memory tools and optional Composio
-#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools(
-    config: Arc<Config>,
-    security: &Arc<SecurityPolicy>,
-    memory: Arc<dyn Memory>,
-    composio_key: Option<&str>,
-    composio_entity_id: Option<&str>,
-    browser_config: &crate::config::BrowserConfig,
-    http_config: &crate::config::HttpRequestConfig,
-    web_fetch_config: &crate::config::WebFetchConfig,
-    workspace_dir: &std::path::Path,
-    agents: &HashMap<String, DelegateAgentConfig>,
-    fallback_api_key: Option<&str>,
-    root_config: &crate::config::Config,
-) -> Vec<Box<dyn Tool>> {
-    all_tools_with_runtime(
+pub fn all_tools(context: ToolContext<'_>) -> Vec<Box<dyn Tool>> {
+    all_tools_with_runtime(context)
+}
+
+/// Create full tool registry including memory tools and optional Composio.
+pub fn all_tools_with_runtime(context: ToolContext<'_>) -> Vec<Box<dyn Tool>> {
+    let ToolContext {
         config,
         security,
-        Arc::new(NativeRuntime::new()),
+        runtime,
         memory,
         composio_key,
         composio_entity_id,
@@ -189,26 +266,8 @@ pub fn all_tools(
         agents,
         fallback_api_key,
         root_config,
-    )
-}
+    } = context;
 
-/// Create full tool registry including memory tools and optional Composio.
-#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub fn all_tools_with_runtime(
-    config: Arc<Config>,
-    security: &Arc<SecurityPolicy>,
-    runtime: Arc<dyn RuntimeAdapter>,
-    memory: Arc<dyn Memory>,
-    composio_key: Option<&str>,
-    composio_entity_id: Option<&str>,
-    browser_config: &crate::config::BrowserConfig,
-    http_config: &crate::config::HttpRequestConfig,
-    web_fetch_config: &crate::config::WebFetchConfig,
-    workspace_dir: &std::path::Path,
-    agents: &HashMap<String, DelegateAgentConfig>,
-    fallback_api_key: Option<&str>,
-    root_config: &crate::config::Config,
-) -> Vec<Box<dyn Tool>> {
     let mut tool_arcs: Vec<Arc<dyn Tool>> = vec![
         Arc::new(ShellTool::new(security.clone(), runtime)),
         Arc::new(FileReadTool::new(security.clone())),
@@ -365,6 +424,34 @@ mod tests {
         }
     }
 
+    fn test_tool_context<'a>(
+        config: Arc<Config>,
+        security: Arc<SecurityPolicy>,
+        memory: Arc<dyn Memory>,
+        browser: &'a BrowserConfig,
+        http: &'a crate::config::HttpRequestConfig,
+        web_fetch: &'a crate::config::WebFetchConfig,
+        workspace_dir: &'a Path,
+        agents: &'a HashMap<String, DelegateAgentConfig>,
+        fallback_api_key: Option<&'a str>,
+        root_config: &'a Config,
+    ) -> ToolContext<'a> {
+        ToolContext::with_native_runtime(
+            config,
+            security,
+            memory,
+            None,
+            None,
+            browser,
+            http,
+            web_fetch,
+            workspace_dir,
+            agents,
+            fallback_api_key,
+            root_config,
+        )
+    }
+
     #[test]
     fn default_tools_has_expected_count() {
         let security = Arc::new(SecurityPolicy::default());
@@ -392,20 +479,20 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let tools = all_tools(
+        let web_fetch = crate::config::WebFetchConfig::default();
+        let agents = HashMap::new();
+        let tools = all_tools(test_tool_context(
             Arc::new(Config::default()),
-            &security,
+            security,
             mem,
-            None,
-            None,
             &browser,
             &http,
-            &crate::config::WebFetchConfig::default(),
+            &web_fetch,
             tmp.path(),
-            &HashMap::new(),
+            &agents,
             None,
             &cfg,
-        );
+        ));
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(!names.contains(&"browser_open"));
         assert!(names.contains(&"schedule"));
@@ -434,20 +521,20 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let tools = all_tools(
+        let web_fetch = crate::config::WebFetchConfig::default();
+        let agents = HashMap::new();
+        let tools = all_tools(test_tool_context(
             Arc::new(Config::default()),
-            &security,
+            security,
             mem,
-            None,
-            None,
             &browser,
             &http,
-            &crate::config::WebFetchConfig::default(),
+            &web_fetch,
             tmp.path(),
-            &HashMap::new(),
+            &agents,
             None,
             &cfg,
-        );
+        ));
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"browser_open"));
         assert!(names.contains(&"content_search"));
@@ -584,20 +671,19 @@ mod tests {
             },
         );
 
-        let tools = all_tools(
+        let web_fetch = crate::config::WebFetchConfig::default();
+        let tools = all_tools(test_tool_context(
             Arc::new(Config::default()),
-            &security,
+            security,
             mem,
-            None,
-            None,
             &browser,
             &http,
-            &crate::config::WebFetchConfig::default(),
+            &web_fetch,
             tmp.path(),
             &agents,
             Some("delegate-test-credential"),
             &cfg,
-        );
+        ));
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"delegate"));
     }
@@ -617,20 +703,20 @@ mod tests {
         let http = crate::config::HttpRequestConfig::default();
         let cfg = test_config(&tmp);
 
-        let tools = all_tools(
+        let web_fetch = crate::config::WebFetchConfig::default();
+        let agents = HashMap::new();
+        let tools = all_tools(test_tool_context(
             Arc::new(Config::default()),
-            &security,
+            security,
             mem,
-            None,
-            None,
             &browser,
             &http,
-            &crate::config::WebFetchConfig::default(),
+            &web_fetch,
             tmp.path(),
-            &HashMap::new(),
+            &agents,
             None,
             &cfg,
-        );
+        ));
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
         assert!(!names.contains(&"delegate"));
     }
