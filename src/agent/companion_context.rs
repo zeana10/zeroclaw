@@ -200,7 +200,7 @@ mod tests {
     }
 
     impl MockMemory {
-        fn new() -> Arc<dyn Memory> {
+        fn make() -> Arc<dyn Memory> {
             Arc::new(Self {
                 entries: RwLock::new(HashMap::new()),
             })
@@ -304,7 +304,7 @@ mod tests {
     async fn build_contains_persona_name_and_traits() {
         let builder = CompanionContextBuilder::new(test_persona(), 5);
         let session = test_session(0.0, 0);
-        let memory = MockMemory::new();
+        let memory = MockMemory::make();
 
         let prompt = builder.build(&session, "hello", &memory).await.unwrap();
 
@@ -330,7 +330,7 @@ mod tests {
     async fn build_includes_persona_description() {
         let builder = CompanionContextBuilder::new(test_persona(), 5);
         let session = test_session(0.0, 0);
-        let memory = MockMemory::new();
+        let memory = MockMemory::make();
 
         let prompt = builder.build(&session, "hi", &memory).await.unwrap();
         assert!(prompt.contains("A warm and witty AI companion."));
@@ -339,7 +339,7 @@ mod tests {
     #[tokio::test]
     async fn build_relationship_text_reflects_familiarity_tiers() {
         let builder = CompanionContextBuilder::new(test_persona(), 5);
-        let memory = MockMemory::new();
+        let memory = MockMemory::make();
 
         let cases = vec![
             (0.0_f64, "meeting this person for the first time"),
@@ -362,7 +362,7 @@ mod tests {
     async fn build_includes_turn_count_in_relationship_section() {
         let builder = CompanionContextBuilder::new(test_persona(), 5);
         let session = test_session(0.5, 42);
-        let memory = MockMemory::new();
+        let memory = MockMemory::make();
 
         let prompt = builder.build(&session, "hi", &memory).await.unwrap();
         assert!(
@@ -508,7 +508,7 @@ mod tests {
     async fn build_includes_tone_guidance_footer() {
         let builder = CompanionContextBuilder::new(test_persona(), 5);
         let session = test_session(0.0, 0);
-        let memory = MockMemory::new();
+        let memory = MockMemory::make();
 
         let prompt = builder.build(&session, "hey", &memory).await.unwrap();
 
@@ -534,7 +534,7 @@ mod tests {
 
     #[tokio::test]
     async fn build_with_no_memory_omits_recall_and_summary_sections() {
-        let memory = MockMemory::new(); // empty
+        let memory = MockMemory::make(); // empty
 
         let builder = CompanionContextBuilder::new(test_persona(), 5);
         let session = test_session(0.0, 0);
