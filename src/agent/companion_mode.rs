@@ -198,7 +198,7 @@ mod tests {
         let cfg = config_with_personas(vec![persona("Zara", &[])]);
         let mode = CompanionMode::new(cfg);
 
-        let first = mode.get_or_create_session("user-2", None).await;
+        let _first = mode.get_or_create_session("user-2", None).await;
         // Simulate some progress manually before the second call.
         {
             let mut guard = mode.sessions.write().await;
@@ -332,8 +332,20 @@ mod tests {
     }
 
     #[test]
-    fn companion_config_default_values_are_sensible() {
+    fn companion_config_default_is_disabled_with_empty_personas() {
+        // `#[derive(Default)]` on CompanionConfig produces 0 for numeric fields;
+        // the serde `default = "..."` annotations apply only during TOML
+        // deserialization, not via the Default trait.
         let cfg = CompanionConfig::default();
+        assert!(!cfg.enabled);
+        assert!(cfg.personas.is_empty());
+    }
+
+    #[test]
+    fn companion_config_serde_defaults_apply_on_deserialize() {
+        // When deserializing an empty TOML table the serde default functions
+        // kick in and produce recall_k=5 and summary_interval=10.
+        let cfg: CompanionConfig = toml::from_str("").unwrap();
         assert!(!cfg.enabled);
         assert_eq!(cfg.memory_recall_k, 5);
         assert_eq!(cfg.summary_interval, 10);
