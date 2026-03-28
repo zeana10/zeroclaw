@@ -1,3 +1,5 @@
+use crate::agent::companion_context::CompanionContextBuilder;
+use crate::agent::companion_mode::CompanionMode;
 use crate::approval::{ApprovalManager, ApprovalRequest, ApprovalResponse};
 use crate::config::Config;
 use crate::memory::{self, Memory, MemoryCategory};
@@ -3061,6 +3063,11 @@ pub async fn run(
         system_prompt.push_str(&build_tool_instructions(&tools_registry));
     }
 
+    // ── Companion mode ────────────────────────────────────────────
+    let companion_mode = config.companion.enabled.then(|| {
+        CompanionMode::new(config.companion.clone())
+    });
+
     // ── Approval manager (supervised mode) ───────────────────────
     let approval_manager = if interactive {
         Some(ApprovalManager::from_config(&config.autonomy))
@@ -3218,6 +3225,21 @@ pub async fn run(
                 let _ = mem
                     .store(&user_key, &user_input, MemoryCategory::Conversation, None)
                     .await;
+            }
+
+            // ── Companion mode: rebuild system prompt each turn (Tolan-style) ──
+            if let Some(ref cm) = companion_mode {
+                let session = cm.get_or_create_session("cli_user", Some("cli")).await;
+                let persona = cm
+                    .persona(&session.persona_name)
+                    .unwrap_or_else(|| cm.default_persona());
+                let builder =
+                    CompanionContextBuilder::new(persona.clone(), cm.config.memory_recall_k);
+                if let Ok(companion_system) = builder.build(&session, &user_input, &mem).await {
+                    if let Some(first) = history.first_mut() {
+                        *first = ChatMessage::system(&companion_system);
+                    }
+                }
             }
 
             // Inject memory + hardware RAG context into user message
