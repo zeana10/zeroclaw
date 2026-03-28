@@ -58,6 +58,7 @@ pub mod web_search_tool;
 
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
+#[allow(unused_imports)]
 pub use companion_memory::{
     CompanionRecallContextTool, CompanionRememberFactTool, CompanionUpdateSummaryTool,
 };

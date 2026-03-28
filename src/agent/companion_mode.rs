@@ -2,57 +2,14 @@
 //!
 //! This module manages per-user [`CompanionSession`] state and provides
 //! persona selection logic for the ClawdCompanion AI companion mode.
-//! Config structs defined here will be reconciled into `src/config/schema.rs`
-//! during integration.
+//! Config structs ([`CompanionConfig`], [`PersonaConfig`]) live in
+//! `src/config/schema.rs` and are re-exported here for convenience.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-// ── Config structs ─────────────────────────────────────────────────────────────
-
-/// Configuration for a single companion persona character.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PersonaConfig {
-    /// The persona's display name (e.g. "Zara", "Max").
-    pub name: String,
-    /// A brief description of the persona's background and purpose.
-    pub description: String,
-    /// A list of personality trait adjectives (e.g. "curious", "warm", "playful").
-    pub personality_traits: Vec<String>,
-    /// Tonal guidance string (e.g. "casual and upbeat").
-    pub tone: String,
-    /// Greeting message sent on first contact.
-    pub greeting: String,
-    /// Optional channel IDs or names this persona prefers (e.g. "telegram", "discord").
-    #[serde(default)]
-    pub channel_affinity: Vec<String>,
-}
-
-/// Top-level companion mode configuration block.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-pub struct CompanionConfig {
-    /// Whether companion mode is active.
-    #[serde(default)]
-    pub enabled: bool,
-    /// Number of memories to recall per turn for context building.
-    #[serde(default = "default_recall_k")]
-    pub memory_recall_k: usize,
-    /// Number of turns between automatic conversation summary regenerations.
-    #[serde(default = "default_summary_interval")]
-    pub summary_interval: u32,
-    /// All available persona definitions.
-    #[serde(default)]
-    pub personas: Vec<PersonaConfig>,
-}
-
-fn default_recall_k() -> usize {
-    5
-}
-
-fn default_summary_interval() -> u32 {
-    10
-}
+pub use crate::config::schema::{CompanionConfig, PersonaConfig};
 
 // ── Session state ──────────────────────────────────────────────────────────────
 

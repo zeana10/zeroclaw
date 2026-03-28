@@ -232,6 +232,10 @@ pub struct Config {
     /// Text-to-Speech configuration (`[tts]`).
     #[serde(default)]
     pub tts: TtsConfig,
+
+    /// Companion mode configuration — animal persona, memory recall, familiarity scoring (`[companion]`).
+    #[serde(default)]
+    pub companion: CompanionConfig,
 }
 
 /// Named provider profile definition compatible with Codex app-server style config.
@@ -258,6 +262,51 @@ pub struct ModelProviderConfig {
     /// Azure OpenAI API version (defaults to "2024-08-01-preview").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub azure_openai_api_version: Option<String>,
+}
+
+// ── Companion mode ────────────────────────────────────────────────
+
+/// Configuration for a single ClawdCompanion animal persona.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PersonaConfig {
+    /// The persona's display name (e.g. `"Finn"`, `"Mara"`, `"Zeph"`).
+    pub name: String,
+    /// Short description of the character.
+    pub description: String,
+    /// Personality trait adjectives (e.g. `["clever", "mischievous"]`).
+    #[serde(default)]
+    pub personality_traits: Vec<String>,
+    /// Tonal guidance string (e.g. `"playful and sharp"`).
+    pub tone: String,
+    /// First-contact greeting message.
+    pub greeting: String,
+    /// Channel names/IDs that prefer this persona. Empty = available everywhere.
+    #[serde(default)]
+    pub channel_affinity: Vec<String>,
+}
+
+/// Top-level companion mode configuration (`[companion]`).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+pub struct CompanionConfig {
+    /// Enable companion mode. Default: `false`.
+    #[serde(default)]
+    pub enabled: bool,
+    /// Number of memories recalled per turn via vector search. Default: `5`.
+    #[serde(default = "default_companion_recall_k")]
+    pub memory_recall_k: usize,
+    /// Regenerate rolling conversation summary every N turns. Default: `10`.
+    #[serde(default = "default_companion_summary_interval")]
+    pub summary_interval: u32,
+    /// Persona definitions. At least one is required when `enabled = true`.
+    #[serde(default)]
+    pub personas: Vec<PersonaConfig>,
+}
+
+fn default_companion_recall_k() -> usize {
+    5
+}
+fn default_companion_summary_interval() -> u32 {
+    10
 }
 
 // ── Delegate Agents ──────────────────────────────────────────────
