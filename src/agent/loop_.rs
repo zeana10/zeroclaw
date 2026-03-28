@@ -1,4 +1,5 @@
 use crate::agent::companion_context::CompanionContextBuilder;
+use crate::agent::companion_harvester::CompanionMemoryHarvester;
 use crate::agent::companion_mode::CompanionMode;
 use crate::approval::{ApprovalManager, ApprovalRequest, ApprovalResponse};
 use crate::config::Config;
@@ -3067,6 +3068,9 @@ pub async fn run(
     let companion_mode = config.companion.enabled.then(|| {
         CompanionMode::new(config.companion.clone())
     });
+    let companion_harvester = (config.companion.enabled && config.companion.auto_harvest).then(|| {
+        CompanionMemoryHarvester::new(config.companion.max_facts_per_turn)
+    });
 
     // ── Approval manager (supervised mode) ───────────────────────
     let approval_manager = if interactive {
@@ -3297,6 +3301,26 @@ pub async fn run(
                 eprintln!("\nError sending CLI response: {e}\n");
             }
             observer.record_event(&ObserverEvent::TurnComplete);
+
+            // ── Companion: update familiarity + passive memory harvest ──
+            if let Some(ref cm) = companion_mode {
+                let should_summarise = cm.after_turn("cli_user").await;
+                if should_summarise {
+                    tracing::debug!("companion: summary interval reached, companion_update_summary tool available");
+                }
+            }
+            if let Some(ref harvester) = companion_harvester {
+                harvester
+                    .harvest(
+                        "cli_user",
+                        &user_input,
+                        &response,
+                        &mem,
+                        provider.as_ref() as &dyn crate::providers::Provider,
+                        model_name,
+                    )
+                    .await;
+            }
 
             // Auto-compaction before hard trimming to preserve long-context signal.
             if let Ok(compacted) = auto_compact_history(

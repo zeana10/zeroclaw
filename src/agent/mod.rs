@@ -2,6 +2,7 @@
 pub mod agent;
 pub mod classifier;
 pub mod companion_context;
+pub mod companion_harvester;
 pub mod companion_mode;
 pub mod dispatcher;
 pub mod loop_;

@@ -300,6 +300,21 @@ pub struct CompanionConfig {
     /// Persona definitions. At least one is required when `enabled = true`.
     #[serde(default)]
     pub personas: Vec<PersonaConfig>,
+
+    /// Automatically extract and persist facts from every conversation turn
+    /// (passive memory harvesting). When `true`, a lightweight LLM call runs
+    /// after each response to identify and store personal facts the user shared.
+    /// This is the mechanism behind Tolan-style persistent memory. Default: `true`.
+    #[serde(default = "default_companion_auto_harvest")]
+    pub auto_harvest: bool,
+    /// Optional model override for the fact-extraction call. Uses the agent's
+    /// default model when empty. Set to a faster/cheaper model to reduce latency
+    /// (e.g. `"openai/gpt-4o-mini"`). Default: `""` (use agent model).
+    #[serde(default)]
+    pub harvest_model: String,
+    /// Maximum facts to extract and store per conversation turn. Default: `5`.
+    #[serde(default = "default_companion_max_facts")]
+    pub max_facts_per_turn: usize,
 }
 
 fn default_companion_recall_k() -> usize {
@@ -307,6 +322,12 @@ fn default_companion_recall_k() -> usize {
 }
 fn default_companion_summary_interval() -> u32 {
     10
+}
+fn default_companion_auto_harvest() -> bool {
+    true
+}
+fn default_companion_max_facts() -> usize {
+    5
 }
 
 // ── Delegate Agents ──────────────────────────────────────────────
@@ -5900,6 +5921,15 @@ default_temperature = 0.7
             hardware: HardwareConfig::default(),
             transcription: TranscriptionConfig::default(),
             tts: TtsConfig::default(),
+            companion: CompanionConfig {
+                enabled: false,
+                memory_recall_k: 5,
+                summary_interval: 10,
+                personas: vec![],
+                auto_harvest: false,
+                harvest_model: String::new(),
+                max_facts_per_turn: 5,
+            },
         };
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
@@ -6096,9 +6126,11 @@ tool_dispatcher = "xml"
             hardware: HardwareConfig::default(),
             transcription: TranscriptionConfig::default(),
             tts: TtsConfig::default(),
+            companion: CompanionConfig::default(),
         };
 
         config.save().await.unwrap();
+
         assert!(config_path.exists());
 
         let contents = tokio::fs::read_to_string(&config_path).await.unwrap();
