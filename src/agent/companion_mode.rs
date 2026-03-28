@@ -177,6 +177,7 @@ mod tests {
             memory_recall_k: 5,
             summary_interval: 10,
             personas,
+            ..CompanionConfig::default()
         }
     }
 
@@ -280,6 +281,7 @@ mod tests {
             memory_recall_k: 5,
             summary_interval: 5,
             personas: vec![persona("Zara", &[])],
+            ..CompanionConfig::default()
         };
         let mode = CompanionMode::new(cfg);
         mode.get_or_create_session("user-7", None).await;
