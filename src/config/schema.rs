@@ -3934,6 +3934,7 @@ impl Default for Config {
             query_classification: QueryClassificationConfig::default(),
             transcription: TranscriptionConfig::default(),
             tts: TtsConfig::default(),
+            companion: CompanionConfig::default(),
         }
     }
 }
