@@ -18,6 +18,7 @@
 pub mod browser;
 pub mod browser_open;
 pub mod cli_discovery;
+pub mod companion_memory;
 pub mod composio;
 pub mod content_search;
 pub mod cron_add;
@@ -57,6 +58,9 @@ pub mod web_search_tool;
 
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
+pub use companion_memory::{
+    CompanionRecallContextTool, CompanionRememberFactTool, CompanionUpdateSummaryTool,
+};
 pub use composio::ComposioTool;
 pub use content_search::ContentSearchTool;
 pub use cron_add::CronAddTool;

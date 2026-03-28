@@ -1,6 +1,8 @@
 #[allow(clippy::module_inception)]
 pub mod agent;
 pub mod classifier;
+pub mod companion_context;
+pub mod companion_mode;
 pub mod dispatcher;
 pub mod loop_;
 pub mod memory_loader;
