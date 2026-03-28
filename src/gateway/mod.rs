@@ -701,6 +701,8 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/events", get(sse::handle_sse_events))
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
+        // ── Companion voice TTS ──
+        .route("/companion/tts", post(handle_companion_tts))
         // ── Static assets (web dashboard) ──
         .route("/_app/{*path}", get(static_files::handle_static))
         // ── Config PUT with larger body limit ──
@@ -843,6 +845,59 @@ async fn persist_pairing_tokens(config: Arc<Mutex<Config>>, pairing: &PairingGua
     // Keep shared runtime config in sync with persisted tokens.
     *config.lock() = updated_cfg;
     Ok(())
+}
+
+// ── Companion TTS endpoint ────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct CompanionTtsRequest {
+    text: String,
+}
+
+/// `POST /companion/tts` — synthesize text with the configured TTS provider.
+///
+/// Returns raw audio bytes (`audio/mpeg`).
+/// Requires `[tts]` to be configured and `enabled = true` in config.
+async fn handle_companion_tts(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    Json(body): Json<CompanionTtsRequest>,
+) -> impl IntoResponse {
+    if body.text.is_empty() {
+        return (StatusCode::BAD_REQUEST, "text must not be empty").into_response();
+    }
+
+    let tts_config = {
+        let cfg = state.config.lock();
+        if !cfg.tts.enabled {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "TTS is not enabled. Set [tts] enabled = true in config.toml.",
+            )
+                .into_response();
+        }
+        cfg.tts.clone()
+    };
+
+    let tts = match crate::channels::tts::TtsManager::new(&tts_config) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("companion/tts: failed to init TTS manager: {e}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "TTS provider unavailable").into_response();
+        }
+    };
+
+    match tts.synthesize(&body.text).await {
+        Ok(audio_bytes) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "audio/mpeg")],
+            audio_bytes,
+        )
+            .into_response(),
+        Err(e) => {
+            tracing::warn!("companion/tts: synthesis failed: {e}");
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("TTS error: {e}")).into_response()
+        }
+    }
 }
 
 /// Simple chat for webhook endpoint (no tools, for backward compatibility and testing).
