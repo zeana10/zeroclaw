@@ -3,6 +3,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import AgentChat from './pages/AgentChat';
+import Companion from './pages/Companion';
 import Tools from './pages/Tools';
 import Cron from './pages/Cron';
 import Integrations from './pages/Integrations';
@@ -115,6 +116,7 @@ function AppContent() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/agent" element={<AgentChat />} />
+          <Route path="/companion" element={<Companion />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/cron" element={<Cron />} />
           <Route path="/integrations" element={<Integrations />} />
