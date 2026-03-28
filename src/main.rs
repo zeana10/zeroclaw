@@ -197,6 +197,37 @@ Examples:
         peripheral: Vec<String>,
     },
 
+    /// Chat with your ClawdCompanion animal persona
+    #[command(long_about = "\
+Chat with your ClawdCompanion AI companion.
+
+Starts an interactive companion session using the persona configured
+under [companion] in your config. If companion mode is not yet set up,
+a quick setup wizard will run first.
+
+Examples:
+  zeroclaw companion                         # chat with default persona
+  zeroclaw companion --persona Finn          # force a specific persona
+  zeroclaw companion -m \"Hey, what's up?\"   # single message
+  zeroclaw companion --provider ollama       # use a local model")]
+    Companion {
+        /// Single message mode
+        #[arg(short, long)]
+        message: Option<String>,
+
+        /// Force a specific persona by name (must be in config)
+        #[arg(long)]
+        persona: Option<String>,
+
+        /// Provider override (e.g. anthropic, openai, ollama)
+        #[arg(short, long)]
+        provider: Option<String>,
+
+        /// Model override
+        #[arg(long)]
+        model: Option<String>,
+    },
+
     /// Start/manage the gateway server (webhooks, websockets)
     #[command(long_about = "\
 Manage the gateway server (webhooks, websockets).
@@ -833,6 +864,73 @@ async fn main() -> Result<()> {
             )
             .await
             .map(|_| ())
+        }
+
+        Commands::Companion {
+            message,
+            persona,
+            provider,
+            model,
+        } => {
+            // Ensure companion mode is enabled
+            if !config.companion.enabled {
+                if config.companion.personas.is_empty() {
+                    println!("ClawdCompanion is not configured yet.");
+                    println!("Add a [companion] block to your config.toml:");
+                    println!();
+                    println!("  [companion]");
+                    println!("  enabled = true");
+                    println!();
+                    println!("  [[companion.personas]]");
+                    println!("  name = \"Finn\"");
+                    println!("  description = \"A clever fox who loves wordplay\"");
+                    println!("  personality_traits = [\"clever\", \"curious\", \"witty\"]");
+                    println!("  tone = \"playful and sharp\"");
+                    println!("  greeting = \"Hey! I'm Finn. What's on your mind? 🦊\"");
+                    println!();
+                    println!("See docs/companion-mode.md for all options.");
+                    return Ok(());
+                }
+                // Personas exist but companion disabled — enable it for this run
+                config.companion.enabled = true;
+            }
+
+            // Override persona if --persona flag was passed
+            if let Some(ref pname) = persona {
+                let idx = config
+                    .companion
+                    .personas
+                    .iter()
+                    .position(|p| p.name.eq_ignore_ascii_case(pname));
+                match idx {
+                    Some(i) => config.companion.personas.rotate_left(i),
+                    None => {
+                        let available = config
+                            .companion
+                            .personas
+                            .iter()
+                            .map(|p| p.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        eprintln!("No persona named '{pname}' found. Available: {available}");
+                        return Ok(());
+                    }
+                }
+            }
+
+            // Greet the user with the active persona's greeting
+            let greeting = config
+                .companion
+                .personas
+                .first()
+                .map(|p| p.greeting.as_str())
+                .unwrap_or("Hello! Your companion is ready.");
+            println!("{greeting}\n");
+
+            let temperature = config.default_temperature;
+            agent::run(config, message, provider, model, temperature, vec![], true)
+                .await
+                .map(|_| ())
         }
 
         Commands::Gateway { gateway_command } => {
